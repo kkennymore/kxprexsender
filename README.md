@@ -1,69 +1,33 @@
 # 📦 kxprexsender
 
-A complete notification system with backend (Node.js) and Flutter SDK support.
+A production-ready notification system with backend (Node.js) and Flutter SDK support.
 
 ## 🧠 Overview
 
-**kxprexsender** provides a unified notification delivery system with:
+**kxprexsender** provides a complete notification solution with:
 
-- 🔔 **Backend (Node.js)**: Multi-transport notification router (Web Push, FCM, Socket.io)
-- 📱 **Flutter SDK**: Single-call device SDK for push notifications and badge management
-- 🏷️ **Badge System**: Real-time read/unread badge synchronization
+- 🔔 **Backend (Node.js)**: Multi-transport routing with caching, metrics, and templates
+- 📱 **Flutter SDK**: Push notifications, local notifications, offline queue, and analytics
+- 🏷️ **Badge Management**: Real-time read/unread badge synchronization
 - 🎛️ **Effect Control**: Independent notification and badge update control
+- 📊 **Analytics**: Built-in tracking for engagement metrics
+- 🚀 **Performance**: Redis caching, connection pooling, batch processing
 
 ---
 
-## 📁 Project Structure
+## 📋 Table of Contents
 
-```
-kxprexsender/
-├── kxprexsender-node/          # Backend npm package
-│   ├── src/
-│   │   ├── index.ts           # Main entry
-│   │   ├── KxPrexSender.ts    # Main class
-│   │   ├── types.ts           # TypeScript types
-│   │   ├── core/
-│   │   │   ├── router.ts      # Notification routing
-│   │   │   └── payloadBuilder.ts
-│   │   ├── channels/
-│   │   │   ├── webpush.ts     # Web Push transport
-│   │   │   ├── fcm.ts         # FCM HTTP v1 transport
-│   │   │   └── socket.ts      # Socket.io transport
-│   │   └── auth/
-│   │       └── fcmAuth.ts     # FCM OAuth authentication
-│   ├── package.json
-│   └── README.md
-│
-└── kxprexsender-flutter/      # Flutter SDK (coming soon)
-    └── lib/
-        └── kxprexsender.dart
-```
+- [Installation](#installation)
+- [Backend (Node.js)](#backend-nodejs)
+- [Flutter SDK](#flutter-sdk)
+- [Features](#features)
+- [Documentation](#documentation)
+- [Examples](#examples)
+- [FAQ](#faq)
 
 ---
 
-## 🎯 Features
-
-### Backend (kxprexsender-node)
-
-- ✅ Multi-transport routing (Web Push, FCM, Socket.io)
-- ✅ Badge count management (read/unread)
-- ✅ Effect control (notify vs badge-only updates)
-- ✅ Per-device delivery reporting
-- ✅ No Firebase Admin SDK dependency
-- ✅ JWT-based FCM authentication
-
-### Flutter SDK (kxprexsender-flutter)
-
-- ✅ Single-call initialization
-- ✅ Automatic device registration
-- ✅ Foreground/background message handling
-- ✅ Real-time badge synchronization
-- ✅ Custom authentication headers
-- ✅ Token refresh handling
-
----
-
-## 🚀 Quick Start
+## 🚀 Installation
 
 ### Backend (Node.js)
 
@@ -72,11 +36,34 @@ cd kxprexsender-node
 npm install
 ```
 
-**Usage:**
+### Flutter SDK
+
+```yaml
+dependencies:
+  kxprexsender: ^2.0.0
+```
+
+---
+
+## 📦 Backend (Node.js)
+
+### Quick Start
 
 ```typescript
-import { KxPrexSender } from 'kxprexsender';
+import { KxPrexSender, CacheService, RateLimiterService, MetricsService } from 'kxprexsender';
 
+// Initialize services
+const cache = new CacheService({ provider: 'redis', host: 'localhost' });
+await cache.connect();
+
+const rateLimiter = new RateLimiterService({
+  windowMs: 60000,
+  maxRequests: 100,
+});
+
+const metrics = new MetricsService();
+
+// Create sender
 const sender = new KxPrexSender({
   fcm: {
     projectId: 'your-project-id',
@@ -88,11 +75,14 @@ const sender = new KxPrexSender({
     vapidPrivateKey: 'your-vapid-private-key',
     subject: 'mailto:admin@example.com',
   },
-  store: yourDeviceStore,
+  store: new InMemoryDeviceStore(),
+  cache,
+  rateLimiter,
+  metrics,
 });
 
 // Send notification
-await sender.send({
+const result = await sender.send({
   userId: 'user_123',
   title: 'New Message',
   body: 'You have a new message',
@@ -100,22 +90,173 @@ await sender.send({
   data: { chatId: 'chat_456' },
   badges: { unread: 5, read: 10 },
 });
+
+console.log(`Delivered: ${result.delivered}, Failed: ${result.failed}`);
 ```
 
-### Flutter SDK
+### Backend Features
 
-```yaml
-# pubspec.yaml
-dependencies:
-  kxprexsender: ^1.0.0
+#### Caching Layer
+
+```typescript
+const cache = new CacheService({
+  provider: 'redis', // or 'memory'
+  host: 'localhost',
+  port: 6379,
+  ttl: 3600, // 1 hour
+  maxSize: 10000,
+});
+
+await cache.connect();
+
+// Get or set with automatic caching
+const value = await cache.getOrSet('key', async () => {
+  return await fetchFromDatabase('key');
+});
+
+cache.invalidate('user:*'); // Pattern-based invalidation
 ```
 
-**Usage:**
+#### Rate Limiting
+
+```typescript
+const rateLimiter = new RateLimiterService({
+  windowMs: 60000,
+  maxRequests: 100,
+  blockDuration: 60000,
+});
+
+// Check rate limit
+const result = await rateLimiter.consume('user_123');
+
+// If rate limited
+if (!result.allowed) {
+  console.log(`Retry after ${result.retryAfter} seconds`);
+}
+```
+
+#### Metrics (Prometheus)
+
+```typescript
+const metrics = new MetricsService({
+  enabled: true,
+  path: '/metrics',
+  prefix: 'kxprex',
+});
+
+// Automatic metrics
+metrics.incrementCounter('notifications_sent_total', { channel: 'fcm' });
+metrics.observeHistogram('notification_delivery_latency_seconds', 0.5, { channel: 'fcm' });
+
+// Get metrics for Prometheus scraping
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', metrics.getMetricsContentType());
+  res.send(await metrics.getMetrics());
+});
+```
+
+#### Health Checks
+
+```typescript
+const healthCheck = new HealthCheckService({
+  path: '/health',
+  dependencies: {
+    redis: { host: 'localhost' },
+    postgres: { connectionString: 'postgresql://...' },
+    fcm: { enabled: true },
+  },
+});
+
+await healthCheck.initialize();
+
+app.get('/health', healthCheck.getHealthCheckHandler());
+app.get('/healthz', healthCheck.getLivenessHandler());
+app.get('/ready', healthCheck.getReadinessHandler());
+```
+
+#### Template System
+
+```typescript
+const templateStore = createTemplateStore();
+const renderer = createTemplateRenderer(templateStore);
+
+// Create template
+await templateStore.create({
+  name: 'new_message',
+  channels: {
+    fcm: {
+      title: 'New message from {{senderName}}',
+      body: '{{messagePreview}}',
+    },
+    webpush: {
+      title: 'New message from {{senderName}}',
+      body: '{{messagePreview}}',
+    },
+  },
+  dataFields: ['senderName', 'messagePreview'],
+});
+
+// Render template
+const notification = await renderer.render('new_message', {
+  locale: 'es',
+  data: {
+    senderName: 'Juan',
+    messagePreview: 'Hola, ¿cómo estás?',
+  },
+  badges: { unread: 5, read: 10 },
+});
+
+await sender.send({
+  userId: 'user_123',
+  ...notification,
+});
+```
+
+#### Notification History
+
+```typescript
+const historyStore = createHistoryStore();
+
+// Create history entry
+await historyStore.create({
+  userId: 'user_123',
+  type: 'chat',
+  title: 'New Message',
+  body: 'Hello!',
+  channels: ['fcm'],
+  badges: { unread: 5, read: 10 },
+});
+
+// Get user history
+const { notifications, total } = await historyStore.getByUserId('user_123', {
+  page: 1,
+  limit: 20,
+  type: 'chat',
+});
+
+// Update status
+await historyStore.updateStatus('notif_123', 'delivered');
+
+// Get statistics
+const stats = await historyStore.getStats('user_123', {
+  startDate: new Date('2024-01-01'),
+  endDate: new Date('2024-01-31'),
+});
+```
+
+---
+
+## 📱 Flutter SDK
+
+### Quick Start
 
 ```dart
 import 'package:kxprexsender/kxprexsender.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize SDK
   await KxPrexSender.initialize(
     KxPrexSenderConfig(
       backendUrl: 'https://api.example.com',
@@ -123,232 +264,369 @@ void main() async {
     ),
   );
 
+  // Listen for notifications
   KxPrexSender.onMessage((notification) {
     print('${notification.title}: ${notification.body}');
   });
+
+  // Access badges
+  print('Unread: ${KxPrexSender.badges.unread}');
+
+  runApp(MyApp());
 }
 ```
 
----
-
-## 📖 Documentation
-
-- [Backend README](kxprexsender-node/README.md)
-- [Flutter SDK README](kxprexsender-flutter/README.md)
-- [Flutter Usage Guide](kxprexsender-flutter/EXAMPLE_USAGE.md)
-
----
-
-## 🎛️ Effect Control
-
-Send different types of notifications:
-
-### Normal Notification + Badge Update
-
-```typescript
-await sender.send({
-  userId: 'user_123',
-  title: 'New Message',
-  body: 'You have a new message',
-  type: 'chat',
-  badges: { unread: 5, read: 10 },
-  effects: { notify: true, badge: true },
-});
-```
-
-### Silent Badge Update Only
-
-```typescript
-await sender.send({
-  userId: 'user_123',
-  type: 'sync',
-  badges: { unread: 4, read: 11 },
-  effects: { notify: false, badge: true },
-});
-```
-
-### Notification Only (No Badge Change)
-
-```typescript
-await sender.send({
-  userId: 'user_123',
-  title: 'System Update',
-  body: 'App will be updated tonight',
-  type: 'admin',
-  effects: { notify: true, badge: false },
-});
-```
-
----
-
-## 🔧 Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Backend API                              │
-├─────────────────────────────────────────────────────────────┤
-│                   kxprexsender (Node.js)                     │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │   Router    │  │   Payload   │  │   Device Store      │ │
-│  │             │  │   Builder   │  │   (Interface)       │ │
-│  └──────┬──────┘  └─────────────┘  └─────────────────────┘ │
-│         │                                                    │
-│  ┌──────┴─────────────────────────────────────────────────┐ │
-│  │                    Channels                             │ │
-│  │  ┌──────────┐  ┌──────────┐  ┌────────────────────┐   │ │
-│  │  │ Web Push │  │   FCM    │  │     Socket.io       │   │ │
-│  │  └──────────┘  └──────────┘  └────────────────────┘   │ │
-│  └────────────────────────────────────────────────────────┘ │
-├─────────────────────────────────────────────────────────────┤
-│                   Firebase Cloud Messaging                   │
-├─────────────────────────────────────────────────────────────┤
-│                  Flutter Mobile Apps                         │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │              kxprexsender (Flutter SDK)             │   │
-│  │  ┌────────────┐  ┌────────────┐  ┌────────────────┐│   │
-│  │  │  FCM       │  │   Badge    │  │  Registration  ││   │
-│  │  │  Adapter   │  │   Store    │  │  & API         ││   │
-│  │  └────────────┘  └────────────┘  └────────────────┘│   │
-│  └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 📋 Supported Platforms
-
-| Platform | Transport | Backend | Flutter SDK |
-|----------|-----------|---------|-------------|
-| Web | Web Push | ✅ | ❌ |
-| Android | FCM | ✅ | ✅ |
-| iOS | FCM | ✅ | ✅ |
-| Realtime | Socket.io | ✅ | 🔜 |
-
----
-
-## 🔐 Authentication
-
-### Backend (Node.js)
-
-#### FCM: JWT-based OAuth 2.0
-
-```typescript
-const sender = new KxPrexSender({
-  fcm: {
-    projectId: 'your-project-id',
-    clientEmail: 'firebase-adminsdk@your-project.iam.gserviceaccount.com',
-    privateKey: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
-  },
-  store: deviceStore,
-});
-```
-
-#### Web Push: VAPID
-
-```typescript
-const sender = new KxPrexSender({
-  webPush: {
-    vapidPublicKey: 'YOUR_VAPID_PUBLIC_KEY',
-    vapidPrivateKey: 'YOUR_VAPID_PRIVATE_KEY',
-    subject: 'mailto:admin@example.com',
-  },
-  store: deviceStore,
-});
-```
-
-### Flutter SDK: Custom Headers
+### Local Notifications
 
 ```dart
-KxPrexSender.setRequestHeadersProvider(() async {
-  return {
-    'Authorization': 'Bearer ${await getToken()}',
-    'X-User-ID': userId,
-  };
+// Configure notification channels
+await KxPrexSender.configureChannels([
+  KxPrexNotificationChannel(
+    id: 'chat',
+    name: 'Chat Messages',
+    description: 'Notifications for chat messages',
+    importance: Importance.high,
+    actions: [
+      KxPrexNotificationAction(
+        id: 'reply',
+        title: 'Reply',
+        type: NotificationActionType.reply,
+        inputPlaceholder: 'Type a reply...',
+      ),
+      KxPrexNotificationAction(
+        id: 'view',
+        title: 'View',
+        type: NotificationActionType.open,
+      ),
+    ],
+  ),
+]);
+
+// Show local notification
+await KxPrexSender.showLocalNotification(
+  id: '123',
+  title: 'Reminder',
+  body: 'Meeting in 15 minutes',
+  channelId: 'default',
+);
+
+// Handle notification taps
+KxPrexSender.onNotificationTapped.listen((response) {
+  final actionId = response.actionId;
+  final data = response.payload;
+  print('Tapped: $actionId with data: $data');
+});
+```
+
+### Offline Queue
+
+```dart
+// Add to offline queue
+await KxPrexSender.queue.addNotification(
+  KxPrexNotification(
+    title: 'Draft',
+    body: 'This will be sent when online',
+    type: 'draft',
+    data: {},
+  ),
+  priority: Priority.high,
+);
+
+// Listen to queue events
+KxPrexSender.queue.events.listen((event) {
+  print('Queue event: ${event.type}');
+});
+
+// Get queue size
+final size = await KxPrexSender.queue.getQueueSize();
+print('Pending notifications: $size');
+
+// Process queue manually
+await KxPrexSender.queue.processQueue();
+```
+
+### Analytics
+
+```dart
+// Track notification received
+KxPrexSender.analytics.trackReceived(
+  notificationId: 'notif_123',
+  type: 'chat',
+  data: {'chatId': '123'},
+);
+
+// Track opened
+KxPrexSender.analytics.trackOpened(
+  notificationId: 'notif_123',
+  type: 'chat',
+  actionId: 'view',
+);
+
+// Get session analytics
+final analytics = await KxPrexSender.getSessionAnalytics();
+print('Received: ${analytics['received']}');
+print('Opened: ${analytics['opened']}');
+print('Open Rate: ${analytics['openRate']}%');
+```
+
+### Badge Management
+
+```dart
+// Update badge count
+await KxPrexSender.setBadgeCount(5);
+
+// Clear badge
+await KxPrexSender.clearBadge();
+
+// Listen to badge changes
+KxPrexSender.badges.stream.listen((badges) {
+  print('Unread: ${badges.unread}');
+  print('Read: ${badges.read}');
 });
 ```
 
 ---
 
-## 📦 Dependencies
+## 🎯 Features Comparison
 
-### Backend (Node.js)
+### Backend Features
 
-```json
-{
-  "web-push": "^3.6.0",
-  "axios": "^1.6.0",
-  "jsonwebtoken": "^9.0.2",
-  "socket.io": "^4.7.0"
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Multi-Transport | ✅ | Web Push, FCM, Socket.io |
+| Badge Management | ✅ | Read/unread counts |
+| Effects Control | ✅ | Notify vs badge-only |
+| Redis Caching | ✅ | TTL, pattern invalidation |
+| Rate Limiting | ✅ | Per-user, per-endpoint |
+| Prometheus Metrics | ✅ | Full observability |
+| Health Checks | ✅ | Comprehensive checks |
+| Template System | ✅ | i18n support |
+| Notification History | ✅ | Audit trail |
+| Batch Processing | ✅ | Efficient bulk sends |
+| Connection Pooling | ✅ | Resource optimization |
+
+### Flutter SDK Features
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Push Notifications | ✅ | FCM integration |
+| Badge Management | ✅ | Real-time sync |
+| Local Notifications | ✅ | Scheduled, actions |
+| Notification Channels | ✅ | Android channels |
+| Offline Queue | ✅ | SQLite-backed |
+| Analytics | ✅ | Session tracking |
+| Deep Links | 🔜 | Coming soon |
+| Rich Media | 🔜 | Coming soon |
+| Action Buttons | ✅ | Reply, open, destructive |
+
+---
+
+## 📚 Documentation
+
+### Backend Documentation
+
+- [API Reference](kxprexsender-node/API.md)
+- [Template System](kxprexsender-node/README.md)
+- [Health Checks](kxprexsender-node/src/services/healthCheck.ts)
+
+### Flutter Documentation
+
+- [Usage Guide](kxprexsenderapp/EXAMPLE_USAGE.md)
+- [API Reference](https://pub.dev/documentation/kxprexsender)
+- [Local Notifications](kxprexsenderapp/lib/src/messaging/local_notifications.dart)
+
+---
+
+## 💻 Examples
+
+### Backend Example
+
+```typescript
+// Complete server example
+import { createServer } from 'http';
+import express from 'express';
+import { KxPrexSender, createRateLimiter } from 'kxprexsender';
+
+const app = express();
+const server = createServer(app);
+
+const sender = new KxPrexSender({
+  fcm: { /* config */ },
+  webPush: { /* config */ },
+  store: new InMemoryDeviceStore(),
+});
+
+const rateLimiter = createRateLimiter({
+  windowMs: 60000,
+  maxRequests: 100,
+});
+
+app.use(express.json());
+
+app.post('/send', rateLimiter.middleware(), async (req, res) => {
+  const { userId, title, body, type } = req.body;
+  
+  const result = await sender.send({
+    userId,
+    title,
+    body,
+    type,
+    badges: { unread: 5, read: 10 },
+  });
+  
+  res.json(result);
+});
+
+server.listen(3000, () => {
+  console.log('Server running on port 3000');
+});
+```
+
+### Flutter Example
+
+```dart
+// Complete app example
+import 'package:flutter/material.dart';
+import 'package:kxprexsender/kxprexsender.dart';
+
+class MyApp extends StatefulWidget {
+  @override
+  _MyAppState createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  int _unreadCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Listen to badge updates
+    KxPrexSender.badges.stream.listen((badges) {
+      setState(() => _unreadCount = badges.unread);
+    });
+
+    // Listen to notifications
+    KxPrexSender.onMessage((notification) {
+      _showNotificationDialog(notification);
+    });
+
+    // Listen to taps
+    KxPrexSender.onNotificationTapped.listen((response) {
+      _handleNotificationTap(response.payload);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text('Notifications'),
+          actions: [
+            if (_unreadCount > 0)
+              Badge(
+                label: Text('$_unreadCount'),
+                child: Icon(Icons.notifications),
+              ),
+          ],
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Unread: $_unreadCount'),
+              ElevatedButton(
+                onPressed: () => KxPrexSender.refreshBadges(),
+                child: Text('Refresh'),
+              ),
+              ElevatedButton(
+                onPressed: () => _sendTestNotification(),
+                child: Text('Send Test'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendTestNotification() async {
+    await KxPrexSender.showLocalNotification(
+      id: 'test_${DateTime.now().millisecondsSinceEpoch}',
+      title: 'Test Notification',
+      body: 'This is a test notification',
+      channelId: 'default',
+    );
+  }
+
+  void _showNotificationDialog(KxPrexNotification notification) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(notification.title),
+        content: Text(notification.body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 ```
-
-### Flutter SDK
-
-```yaml
-dependencies:
-  firebase_messaging: ^14.7.0
-  http: ^1.2.0
-  shared_preferences: ^2.2.2
-```
-
----
-
-## 🧪 Testing
-
-### Backend Tests
-
-```bash
-cd kxprexsender-node
-npm test
-```
-
-### Flutter Tests
-
-```bash
-cd kxprexsender-flutter
-flutter test
-```
-
----
-
-## 📚 API Reference
-
-### Backend (Node.js)
-
-See [kxprexsender-node README](kxprexsender-node/README.md)
-
-### Flutter SDK
-
-See [kxprexsender-flutter README](kxprexsender-flutter/README.md)
 
 ---
 
 ## ❓ FAQ
 
-### Q: Do I need Firebase Admin SDK for the backend?
+### Q: How do I upgrade from v1 to v2?
 
-**A:** No! kxprexsender-node uses OAuth 2.0 JWT authentication directly, avoiding the Firebase Admin SDK dependency.
+**A:** Major version includes breaking changes:
+- Backend: New service constructors (CacheService, RateLimiterService, etc.)
+- Flutter: New `KxPrexSender` class with additional methods
+- Check [migration guide](MIGRATION.md) for details
 
-### Q: How do I register devices?
+### Q: Can I use Redis for caching without rate limiting?
 
-**A:** The backend exposes a registration endpoint. The Flutter SDK automatically registers devices on initialization.
+**A:** Yes, configure each service independently:
 
-### Q: How do badges work?
+```typescript
+const cache = new CacheService({ provider: 'redis', host: '...' });
+const rateLimiter = new RateLimiterService({ /* memory */ });
+```
 
-**A:** The backend is the single source of truth. Every push carries the current badge snapshot. The Flutter SDK mirrors this and updates in real-time.
+### Q: How do I handle notification actions in Flutter?
 
-### Q: Can I use this with my existing backend?
+**A:** Use the actions parameter:
 
-**A:** Yes! The package is designed to integrate with any existing backend. Just implement the device store interface.
+```dart
+KxPrexPrexNotificationAction(
+  id: 'reply',
+  title: 'Reply',
+  type: NotificationActionType.reply,
+  inputPlaceholder: 'Type...',
+)
 
----
+// Handle in onNotificationTapped
+KxPrexSender.onNotificationTapped.listen((response) {
+  if (response.actionId == 'reply') {
+    // Handle reply
+  }
+});
+```
 
-## 🤝 Contributing
+### Q: What's the difference between local and push notifications?
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+| Aspect | Push | Local |
+|--------|------|-------|
+| Source | Server | App |
+| Delivery | FCM/APNs | Immediate |
+| Offline | Queued | Immediate |
+| Actions | Limited | Full |
+| Use Case | Server alerts | Reminders |
 
 ---
 
@@ -358,14 +636,16 @@ MIT License - see LICENSE files in each package directory.
 
 ---
 
-## 🔗 Related Links
+## 🤝 Contributing
 
-- [Firebase Cloud Messaging](https://firebase.google.com/docs/cloud-messaging)
-- [Web Push](https://developer.mozilla.org/en-US/docs/Web/API/Push_API)
-- [Socket.io](https://socket.io/)
-- [Flutter](https://flutter.dev/)
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Update documentation
+6. Submit a pull request
 
 ---
 
-**Project Version:** 1.0.0
+**Package Version:** 2.0.0  
 **Last Updated:** February 2026

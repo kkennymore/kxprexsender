@@ -1,6 +1,6 @@
 name: kxprexsender
-description: A production-ready Flutter SDK for push notification handling with backend integration, badge management, and effect control.
-version: 1.0.0
+description: A production-ready Flutter SDK for push notifications with local notifications, analytics, offline queue, and badge management.
+version: 2.0.0
 homepage: https://github.com/your-org/kxprexsender
 repository: https://github.com/your-org/kxprexsender
 
@@ -12,12 +12,23 @@ dependencies:
   flutter:
     sdk: flutter
   firebase_messaging: ^14.7.0
+  firebase_analytics: ^10.8.0
   http: ^1.2.0
   shared_preferences: ^2.2.2
+  flutter_local_notifications: ^16.3.0
+  uuid: ^4.2.0
+  path_provider: ^2.1.0
+  sqlite3: ^2.4.0
+  dio: ^5.4.0
+  dio_cache_interceptor: ^3.5.0
+  logging: ^1.2.0
+  equatable: ^2.0.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  build_runner: ^2.4.0
+  mockito: ^5.4.0
 
 flutter: true
