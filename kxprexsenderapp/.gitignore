@@ -1,0 +1,51 @@
+# Files and directories to ignore when publishing to pub.dev
+
+# Editor and IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Dart/Flutter
+.dart_tool/
+build/
+.packages
+pubspec.lock
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+coverage.lcov
+
+# Local configuration
+*.local.yaml
+.env
+
+# Generated files
+*.g.dart
+*.mocks.dart
+
+# Debug
+*.log
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Firebase
+google-services.json
+GoogleService-Info.plist
+
+# Secrets
+*.pem
+*.p12
+*.jks
+keystore.properties
