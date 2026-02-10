@@ -1,8 +1,11 @@
 /// KxPrexSender - Production-ready Flutter SDK for push notifications.
 ///
 /// This library provides a complete solution for:
-/// - Push notification handling
-/// - Badge count management
+/// - Push notification handling (FCM)
+/// - Badge count management (read/unread)
+/// - Local notifications
+/// - Offline queue support
+/// - Analytics tracking
 /// - Device registration
 /// - Backend integration
 ///
@@ -30,8 +33,9 @@
 /// ```
 ///
 /// See [KxPrexSender] for detailed API documentation.
-library kxprexsender;
+library;
 
 export 'src/models/index.dart';
 export 'src/badges/index.dart';
-export 'kxprexsender.dart';
+export 'src/messaging/index.dart';
+export 'src/core/index.dart';
