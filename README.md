@@ -15,6 +15,31 @@ A production-ready notification system with backend (Node.js) and Flutter SDK su
 
 ---
 
+## ⚠️ Credentials Required
+
+Before using kxprexsender, you need to obtain the following credentials:
+
+### For Backend (FCM + Web Push)
+
+```typescript
+{
+  fcm: {
+    projectId: 'your-project-id',
+    clientEmail: 'firebase-adminsdk@your-project.iam.gserviceaccount.com',
+    privateKey: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
+  },
+  webPush: {
+    vapidPublicKey: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U',
+    vapidPrivateKey: 'your-vapid-private-key',
+    subject: 'mailto:admin@example.com',
+  }
+}
+```
+
+**📖 See [CREDENTIALS_GUIDE.md](CREDENTIALS_GUIDE.md) for detailed step-by-step instructions on how to obtain all required credentials.**
+
+---
+
 ## 📋 Table of Contents
 
 - [Installation](#installation)
@@ -80,19 +105,9 @@ const sender = new KxPrexSender({
   rateLimiter,
   metrics,
 });
-
-// Send notification
-const result = await sender.send({
-  userId: 'user_123',
-  title: 'New Message',
-  body: 'You have a new message',
-  type: 'chat',
-  data: { chatId: 'chat_456' },
-  badges: { unread: 5, read: 10 },
-});
-
-console.log(`Delivered: ${result.delivered}, Failed: ${result.failed}`);
 ```
+
+> ⚠️ **Important:** See [CREDENTIALS_GUIDE.md](CREDENTIALS_GUIDE.md) for detailed instructions on how to obtain these credentials.
 
 ### Backend Features
 

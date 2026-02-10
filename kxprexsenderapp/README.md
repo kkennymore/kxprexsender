@@ -12,6 +12,8 @@ A production-ready Flutter SDK for push notification handling with backend integ
 - 🔄 Real-time badge synchronization
 - 🎛️ Effect control (notify vs badge-only updates)
 
+> ⚠️ **Before you begin:** See [CREDENTIALS_GUIDE.md](../CREDENTIALS_GUIDE.md) for detailed instructions on obtaining Firebase credentials.
+
 ## 📋 Table of Contents
 
 - [Installation](#installation)
@@ -31,7 +33,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  kxprexsender: ^1.0.0
+  kxprexsender: ^2.0.0
   firebase_messaging: ^14.7.0
   http: ^1.2.0
   shared_preferences: ^2.2.2
@@ -43,6 +45,12 @@ Follow the official Firebase setup for your platform:
 
 - [Android Setup](https://firebase.google.com/docs/flutter/setup)
 - [iOS Setup](https://firebase.google.com/docs/flutter/setup)
+
+> ⚠️ **Important:** See [CREDENTIALS_GUIDE.md](../CREDENTIALS_GUIDE.md) for detailed step-by-step instructions on:
+> - Creating a Firebase project
+> - Adding Android and iOS apps
+> - Downloading configuration files (`google-services.json`, `GoogleService-Info.plist`)
+> - Setting up service account credentials for your backend
 
 ### 3. Initialize in main.dart
 
